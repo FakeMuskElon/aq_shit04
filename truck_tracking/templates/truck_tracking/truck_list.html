@@ -1,0 +1,40 @@
+{% extends 'truck_tracking/base.html' %}
+
+{% block content %}
+{% if user.is_authenticated %}
+<a href="{% url 'truck_create' %}" class="btn btn-primary mb-3">Добавить транспорт</a>
+{% endif %}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Номерной знак</th>
+            <th>Водитель</th>
+            <th>Статус</th>
+            <th>Время прибытия</th>
+            {% if user.is_authenticated %}
+            <th>Действия</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for truck in trucks %}
+        <tr>
+            <td>{{ truck.license_plate }}</td>
+            <td>{{ truck.driver_name }}</td>
+            <td>{{ truck.get_status_display }}</td>
+            <td>{{ truck.arrival_time|date:"Y-m-d H:i"|default:"—" }}</td>
+            {% if user.is_authenticated %}
+            <td>
+                <a href="{% url 'truck_update' truck.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
+                <a href="{% url 'truck_delete' truck.pk %}" class="btn btn-sm btn-danger">Удалить</a>
+            </td>
+            {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="{% if user.is_authenticated %}5{% else %}4{% endif %}">Транспорт не зарегистрирован</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

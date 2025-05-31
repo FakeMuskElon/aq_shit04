@@ -1,0 +1,24 @@
+# Virtual environment
+venv/
+.env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Database
+*.sqlite3
+*.db
+
+# Django secret key
+.env
+.env.local
+secrets.json
+
+# Static files (если они генерируются автоматически)
+staticfiles/
+
+# IDE
+.vscode/
+.idea/
