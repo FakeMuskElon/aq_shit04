@@ -1,6 +1,12 @@
 {% extends 'truck_tracking/base.html' %}
 
 {% block content %}
+<div class="mb-3">
+    <form method="get" class="d-flex">
+        <input type="text" name="q" value="{{ query }}" class="form-control me-2" placeholder="Поиск по всем полям..." aria-label="Search">
+        <button type="submit" class="btn btn-outline-primary">Поиск</button>
+    </form>
+</div>
 {% if user.is_authenticated %}
 <a href="{% url 'truck_create' %}" class="btn btn-primary mb-3">Добавить транспорт</a>
 {% endif %}
@@ -32,7 +38,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="{% if user.is_authenticated %}5{% else %}4{% endif %}">Транспорт не зарегистрирован</td>
+            <td colspan="{% if user.is_authenticated %}5{% else %}4{% endif %}">Транспорт не найден</td>
         </tr>
         {% endfor %}
     </tbody>
