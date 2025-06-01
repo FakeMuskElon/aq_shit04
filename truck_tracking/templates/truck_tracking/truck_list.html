@@ -1,3 +1,4 @@
+<!-- truck_tracking/templates/truck_tracking/truck_list.html -->
 {% extends 'truck_tracking/base.html' %}
 
 {% block content %}
@@ -13,10 +14,13 @@
 <table class="table table-striped">
     <thead>
         <tr>
+            <th>Идентификатор</th>
+            <th>Дата документа</th>
             <th>Номерной знак</th>
             <th>Водитель</th>
             <th>Статус</th>
             <th>Время прибытия</th>
+            <th>Ворота</th>
             {% if user.is_authenticated %}
             <th>Действия</th>
             {% endif %}
@@ -25,10 +29,13 @@
     <tbody>
         {% for truck in trucks %}
         <tr>
+            <td>{{ truck.doc_guid }}</td>
+            <td>{{ truck.doc_date|date:"Y-m-d"|default:"—" }}</td>
             <td>{{ truck.license_plate }}</td>
             <td>{{ truck.driver_name }}</td>
             <td>{{ truck.get_status_display }}</td>
             <td>{{ truck.arrival_time|date:"Y-m-d H:i"|default:"—" }}</td>
+            <td>{{ truck.gate|default:"—" }}</td>
             {% if user.is_authenticated %}
             <td>
                 <a href="{% url 'truck_update' truck.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
@@ -38,7 +45,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="{% if user.is_authenticated %}5{% else %}4{% endif %}">Транспорт не найден</td>
+            <td colspan="{% if user.is_authenticated %}8{% else %}7{% endif %}">Транспорт не найден</td>
         </tr>
         {% endfor %}
     </tbody>

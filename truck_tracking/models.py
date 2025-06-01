@@ -10,11 +10,13 @@ class Truck(models.Model):
         ('DEPARTED', 'Выехал в рейс'),
     ]
 
-    license_plate = models.CharField(max_length=20, unique=True, verbose_name='Номерной знак')
+    doc_guid = models.CharField(max_length=50, unique=True, verbose_name='Идентификатор документа')
+    doc_date = models.DateField(null=True, blank=True, verbose_name='Дата документа')
     driver_name = models.CharField(max_length=100, verbose_name='Имя водителя')
+    license_plate = models.CharField(max_length=20, verbose_name='Номерной знак')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='AWAITING_ARRIVAL', verbose_name='Статус')
     arrival_time = models.DateTimeField(null=True, blank=True, verbose_name='Время прибытия')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
+    gate = models.CharField(max_length=10, null=True, blank=True, verbose_name='Ворота')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
 
     def __str__(self):
