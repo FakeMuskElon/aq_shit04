@@ -3,12 +3,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.utils.dateparse import parse_datetime, parse_date
-from .models import Truck
+from django.conf import settings
+from .models import Truck, DrivingSlot
 from .forms import TruckForm
 
 def fetch_truck_data():
     try:
-        response = requests.get('http://127.0.0.1:5001/truck_info')
+        response = requests.get(settings.TRUCK_INFO_API_URL)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
@@ -18,31 +19,64 @@ def fetch_truck_data():
 def sync_trucks():
     truck_data = fetch_truck_data()
     status_map = {
-        'awaiting': 'AWAITING_ARRIVAL',
-        'ready': 'READY_TO_ENTER',
-        'on_territory': 'ON_TERRITORY',
-        'loading': 'LOADING',
-        'loaded': 'LOADED',
-        'departed': 'DEPARTED',
+        'ожидает приезда': 'AWAITING_ARRIVAL',
+        'приехал': 'ARRIVED',
+        'заехал на территорию': 'ON_TERRITORY',
+        'на погрузке': 'LOADING',
+        'загружен': 'LOADED',
+        'выехал': 'DEPARTED',
     }
+    seen_guids = set()
     for data in truck_data:
-        arrival_time = parse_datetime(data.get('ArrivalDateTime', '')) if data.get('ArrivalDateTime') else None
-        doc_date = parse_date(data.get('DocDate', '')) if data.get('DocDate') else None
-        status = status_map.get(data.get('TruckStatus', '').lower(), 'AWAITING_ARRIVAL')
-        Truck.objects.update_or_create(
-            doc_guid=data.get('DocGUID'),
-            defaults={
-                'doc_date': doc_date,
-                'driver_name': data.get('TruckDriver_name', ''),
-                'license_plate': data.get('TruckLicense_plate', ''),
-                'status': status,
-                'arrival_time': arrival_time,
-                'gate': data.get('Gate', ''),
-            }
-        )
+        doc_guid = data.get('doc_guid')
+        if not doc_guid:
+            print(f"Skipping entry with missing doc_guid: {data}")
+            continue
+        if doc_guid in seen_guids:
+            print(f"Duplicate doc_guid found in JSON: {doc_guid}")
+            continue
+        seen_guids.add(doc_guid)
+
+        driver_name = data.get('driver_name', '').strip() or ''
+        driver_phone = data.get('driver_phone', '').strip() or ''
+        license_plate = data.get('license_plate', '').strip() or ''
+        arrival_time = parse_datetime(data.get('arrival_time', '')) if data.get('arrival_time') else None
+        doc_date = parse_date(data.get('doc_date', '')) if data.get('doc_date') else None
+        status = status_map.get(data.get('status', '').lower(), 'AWAITING_ARRIVAL')
+
+        try:
+            truck, created = Truck.objects.get_or_create(doc_guid=doc_guid)
+            if created or driver_name:
+                truck.driver_name = driver_name
+            if created or driver_phone:
+                truck.driver_phone = driver_phone
+            if created or license_plate:
+                truck.license_plate = license_plate
+            if created or doc_date:
+                truck.doc_date = doc_date
+            if created or status:
+                truck.status = status
+            if created or arrival_time:
+                truck.arrival_time = arrival_time
+            truck.save()
+
+            # Обработка loading_slots
+            DrivingSlot.objects.filter(truck=truck).delete()  # Удаляем старые слоты
+            for slot_data in data.get('loading_slots', []):
+                uploading_at = parse_datetime(slot_data.get('uploading_at', '')) if slot_data.get('uploading_at') else None
+                DrivingSlot.objects.create(
+                    truck=truck,
+                    gate=slot_data.get('gate', '').strip() or '',
+                    uploading_at=uploading_at,
+                    store=slot_data.get('store', '').strip() or ''
+                )
+
+            print(f"{'Created' if created else 'Updated'} truck: {doc_guid}, driver_name: {truck.driver_name}")
+        except Exception as e:
+            print(f"Error processing truck with doc_guid {doc_guid}: {e}")
 
 def truck_list(request):
-    sync_trucks()  # Синхронизация данных при каждом запросе
+    sync_trucks()
     query = request.GET.get('q', '')
     trucks = Truck.objects.all()
     if query:
@@ -51,10 +85,12 @@ def truck_list(request):
             Q(doc_date__icontains=query) |
             Q(license_plate__icontains=query) |
             Q(driver_name__icontains=query) |
+            Q(driver_phone__icontains=query) |
             Q(status__icontains=query) |
             Q(arrival_time__icontains=query) |
-            Q(gate__icontains=query)
-        )
+            Q(loading_slots__gate__icontains=query) |
+            Q(loading_slots__store__icontains=query)
+        ).distinct()
     trucks = trucks.order_by('-updated_at')
     return render(request, 'truck_tracking/truck_list.html', {'trucks': trucks, 'query': query})
 
