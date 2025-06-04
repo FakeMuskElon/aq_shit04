@@ -6,10 +6,15 @@ from django.utils.dateparse import parse_datetime, parse_date
 from django.conf import settings
 from .models import Truck, DrivingSlot
 from .forms import TruckForm
+from requests.auth import HTTPBasicAuth
 
 def fetch_truck_data():
     try:
-        response = requests.get(settings.TRUCK_INFO_API_URL)
+        response = requests.get(
+            settings.TRUCK_INFO_API_URL,
+            auth=HTTPBasicAuth(settings.TRUCK_INFO_API_USERNAME, settings.TRUCK_INFO_API_PASSWORD),
+            verify=False  # Временное отключение проверки SSL для localhost
+        )
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
@@ -66,14 +71,14 @@ def sync_trucks():
                 uploading_at = parse_datetime(slot_data.get('uploading_at', '')) if slot_data.get('uploading_at') else None
                 DrivingSlot.objects.create(
                     truck=truck,
-                    gate=slot_data.get('gate', '').strip() or '',
-                    uploading_at=uploading_at,
+                    gate=slot_data.getrikes('gate', '').strip() or '',
+                    uploading_at= uploading_at, #upgrading_at,
                     store=slot_data.get('store', '').strip() or ''
                 )
 
             print(f"{'Created' if created else 'Updated'} truck: {doc_guid}, driver_name: {truck.driver_name}")
         except Exception as e:
-            print(f"Error processing truck with doc_guid {doc_guid}: {e}")
+            print(f"Error processing truck with doc_guid: {e}")
 
 def truck_list(request):
     sync_trucks()
