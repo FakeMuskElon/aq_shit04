@@ -28,7 +28,7 @@ class Truck(models.Model):
         old_status = None
         if self.pk:
             try:
-                old_instance = Truck.objects.get(pk=self.kpk)
+                old_instance = Truck.objects.get(pk=self.pk)
                 old_status = old_instance.status
             except Truck.DoesNotExist:
                 pass
