@@ -7,13 +7,14 @@ from django.conf import settings
 from .models import Truck, DrivingSlot
 from .forms import TruckForm
 from requests.auth import HTTPBasicAuth
+from django.http import JsonResponse
 
 def fetch_truck_data():
     try:
         response = requests.get(
             settings.TRUCK_INFO_API_URL,
             auth=HTTPBasicAuth(settings.TRUCK_INFO_API_USERNAME, settings.TRUCK_INFO_API_PASSWORD),
-            verify=False  # Временное отключение проверки SSL для localhost
+            verify=False
         )
         response.raise_for_status()
         return response.json()
@@ -66,36 +67,47 @@ def sync_trucks():
             truck.save()
 
             # Обработка loading_slots
-            DrivingSlot.objects.filter(truck=truck).delete()  # Удаляем старые слоты
+            DrivingSlot.objects.filter(truck=truck).delete()
             for slot_data in data.get('loading_slots', []):
                 uploading_at = parse_datetime(slot_data.get('uploading_at', '')) if slot_data.get('uploading_at') else None
                 DrivingSlot.objects.create(
                     truck=truck,
-                    gate=slot_data.getrikes('gate', '').strip() or '',
-                    uploading_at= uploading_at, #upgrading_at,
+                    gate=slot_data.get('gate', '').strip() or '',
+                    uploading_at=uploading_at,
                     store=slot_data.get('store', '').strip() or ''
                 )
 
             print(f"{'Created' if created else 'Updated'} truck: {doc_guid}, driver_name: {truck.driver_name}")
         except Exception as e:
-            print(f"Error processing truck with doc_guid: {e}")
+            print(f"Error processing truck with doc_guid {doc_guid}: {e}")
 
 def truck_list(request):
     sync_trucks()
     query = request.GET.get('q', '')
     trucks = Truck.objects.all()
     if query:
-        trucks = trucks.filter(
-            Q(doc_guid__icontains=query) |
-            Q(doc_date__icontains=query) |
-            Q(license_plate__icontains=query) |
-            Q(driver_name__icontains=query) |
-            Q(driver_phone__icontains=query) |
-            Q(status__icontains=query) |
-            Q(arrival_time__icontains=query) |
-            Q(loading_slots__gate__icontains=query) |
-            Q(loading_slots__store__icontains=query)
-        ).distinct()
+        print(f"Search query: {query}")
+        date_query = None
+        datetime_query = None
+        try:
+            date_query = parse_date(query)
+            datetime_query = parse_datetime(query)
+        except ValueError:
+            pass
+
+        filters = Q()
+        filters |= Q(license_plate__icontains=query)
+        filters |= Q(driver_name__icontains=query)
+        filters |= Q(driver_phone__icontains=query)
+        filters |= Q(status__icontains=query)
+        filters |= Q(loading_slots__gate__icontains=query)
+        filters |= Q(loading_slots__store__icontains=query)
+        if date_query:
+            filters |= Q(doc_date=date_query)
+        if datetime_query:
+            filters |= Q(arrival_time=datetime_query)
+
+        trucks = trucks.filter(filters).distinct()
     trucks = trucks.order_by('-updated_at')
     return render(request, 'truck_tracking/truck_list.html', {'trucks': trucks, 'query': query})
 
@@ -129,3 +141,17 @@ def truck_delete(request, pk):
         truck.delete()
         return redirect('truck_list')
     return render(request, 'truck_tracking/truck_confirm_delete.html', {'truck': truck})
+
+def set_arrived_status(request, pk):
+    if request.method == 'POST':
+        truck = get_object_or_404(Truck, pk=pk)
+        phone = request.POST.get('driver_phone', '').strip()
+        if phone != truck.driver_phone:
+            truck.driver_phone = phone
+        truck.status = 'ARRIVED'
+        try:
+            truck.save()
+            return JsonResponse({'success': True})
+        except ValueError as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Неверный метод запроса'})

@@ -13,7 +13,6 @@
 <table class="table table-striped">
     <thead>
         <tr>
-            <th>Идентификатор</th>
             <th>Дата документа</th>
             <th>Номерной знак</th>
             <th>Водитель</th>
@@ -21,15 +20,12 @@
             <th>Статус</th>
             <th>Время прибытия</th>
             <th>Слоты погрузки</th>
-            {% if user.is_authenticated %}
             <th>Действия</th>
-            {% endif %}
         </tr>
     </thead>
     <tbody>
         {% for truck in trucks %}
         <tr>
-            <td>{{ truck.doc_guid|default:"—" }}</td>
             <td>{{ truck.doc_date|date:"Y-m-d"|default:"—" }}</td>
             <td>{{ truck.license_plate|default:"—" }}</td>
             <td>{{ truck.driver_name|default:"—" }}</td>
@@ -43,18 +39,112 @@
                 —
                 {% endfor %}
             </td>
-            {% if user.is_authenticated %}
             <td>
+                {% if user.is_authenticated %}
                 <a href="{% url 'truck_update' truck.pk %}" class="btn btn-sm btn-warning">Редактировать</a>
                 <a href="{% url 'truck_delete' truck.pk %}" class="btn btn-sm btn-danger">Удалить</a>
+                {% else %}
+                {% if truck.status != 'ARRIVED' %}
+                <button class="btn btn-sm btn-primary set-arrived-btn" data-truck-id="{{ truck.pk }}" data-driver-phone="{{ truck.driver_phone|default:'' }}">Отметить как "Приехал"</button>
+                {% else %}
+                —
+                {% endif %}
+                {% endif %}
             </td>
-            {% endif %}
         </tr>
         {% empty %}
         <tr>
-            <td colspan="{% if user.is_authenticated %}9{% else %}8{% endif %}">Транспорт не найден</td>
+            <td colspan="8">Транспорт не найден</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<!-- Модальное окно для уточнения номера телефона -->
+<div class="modal fade" id="phoneModal" tabindex="-1" aria-labelledby="phoneModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="phoneModalLabel">Уточните номер телефона</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="phoneForm">
+                    <div class="mb-3">
+                        <label for="driverPhone" class="form-label">Номер телефона (+7(999)999-99-99)</label>
+                        <input type="text" class="form-control" id="driverPhone" name="driver_phone" placeholder="+7(999)999-99-99" required>
+                        <div id="phoneError" class="text-danger" style="display: none;"></div>
+                    </div>
+                    <input type="hidden" id="truckId" name="truck_id">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="submitPhone">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const phoneModal = new bootstrap.Modal(document.getElementById('phoneModal'));
+    const phoneInput = document.getElementById('driverPhone');
+    const phoneError = document.getElementById('phoneError');
+    const submitPhoneBtn = document.getElementById('submitPhone');
+    const truckIdInput = document.getElementById('truckId');
+
+    // Применение маски ввода
+    Inputmask({
+        mask: "+7(999)999-99-99",
+        placeholder: "_",
+        showMaskOnHover: false,
+        showMaskOnFocus: true
+    }).mask(phoneInput);
+
+    document.querySelectorAll('.set-arrived-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const truckId = this.getAttribute('data-truck-id');
+            const driverPhone = this.getAttribute('data-driver-phone');
+            truckIdInput.value = truckId;
+            phoneInput.value = driverPhone || '';
+            phoneError.style.display = 'none';
+            phoneModal.show();
+        });
+    });
+
+    submitPhoneBtn.addEventListener('click', function() {
+        const phone = phoneInput.value.trim();
+        const phonePattern = /^\+7\(\d{3}\)\d{3}-\d{2}-\d{2}$/;
+        if (!phonePattern.test(phone)) {
+            phoneError.textContent = 'Неверный формат номера телефона. Используйте: +7(999)999-99-99';
+            phoneError.style.display = 'block';
+            return;
+        }
+
+        fetch(`/set-arrived/${truckIdInput.value}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ driver_phone: phone })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                phoneModal.hide();
+                location.reload();
+            } else {
+                phoneError.textContent = data.error;
+                phoneError.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            phoneError.textContent = 'Ошибка сервера';
+            phoneError.style.display = 'block';
+        });
+    });
+});
+</script>
 {% endblock %}

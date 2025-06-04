@@ -1,6 +1,7 @@
 from django.db import models
 import requests
 from django.conf import settings
+from django.core.validators import RegexValidator
 
 class Truck(models.Model):
     STATUS_CHOICES = [
@@ -15,7 +16,17 @@ class Truck(models.Model):
     doc_guid = models.CharField(max_length=128, unique=True, verbose_name='Идентификатор документа')
     doc_date = models.DateField(null=True, blank=True, verbose_name='Дата документа')
     driver_name = models.CharField(max_length=100, verbose_name='Имя водителя')
-    driver_phone = models.CharField(max_length=20, blank=True, verbose_name='Телефон водителя')
+    driver_phone = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Телефон водителя',
+        validators=[
+            RegexValidator(
+                regex=settings.PHONE_NUMBER_PATTERN,
+                message='Номер телефона должен быть в формате: +7(999)999-99-99'
+            )
+        ]
+    )
     license_plate = models.CharField(max_length=20, verbose_name='Номерной знак')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='AWAITING_ARRIVAL', verbose_name='Статус')
     arrival_time = models.DateTimeField(null=True, blank=True, verbose_name='Время прибытия')

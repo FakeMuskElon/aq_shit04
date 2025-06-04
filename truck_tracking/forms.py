@@ -8,4 +8,5 @@ class TruckForm(forms.ModelForm):
         widgets = {
             'arrival_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'doc_date': forms.DateInput(attrs={'type': 'date'}),
+            'driver_phone': forms.TextInput(attrs={'data-inputmask': "'mask': '+7(999)999-99-99'"}),
         }
