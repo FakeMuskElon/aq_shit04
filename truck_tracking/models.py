@@ -2,6 +2,7 @@ from django.db import models
 import requests
 from django.conf import settings
 from django.core.validators import RegexValidator
+from requests.auth import HTTPBasicAuth
 
 class Truck(models.Model):
     STATUS_CHOICES = [
@@ -61,7 +62,12 @@ class Truck(models.Model):
                 'TruckStatus': new_status
             }
             try:
-                response = requests.post(settings.TRUCK_STATUS_API_URL, json=payload)
+                print(f"Sending POST to {settings.TRUCK_STATUS_API_URL} with payload: {payload}")
+                response = requests.post(
+                    settings.TRUCK_STATUS_API_URL,
+                    json=payload,
+                    auth=HTTPBasicAuth(settings.TRUCK_STATUS_API_USERNAME, settings.TRUCK_STATUS_API_PASSWORD)
+                )
                 response.raise_for_status()
                 print(f"Sent POST for DocGUID {self.doc_guid} with status {new_status}: {response.status_code}")
             except requests.RequestException as e:

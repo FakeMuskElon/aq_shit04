@@ -73,7 +73,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom settings
 TRUCK_INFO_API_URL = 'http://172.16.4.37/erp/hs/shipments/znp'
-TRUCK_STATUS_API_URL = 'http://127.0.0.1:5001/truck_status'
+TRUCK_STATUS_API_URL = 'http://172.16.4.37/erp/hs/shipments/znp'
 TRUCK_INFO_API_USERNAME = 'admin'  # Имя пользователя для авторизации
 TRUCK_INFO_API_PASSWORD = '123'   # Пароль для авторизации
+TRUCK_STATUS_API_USERNAME = 'admin'
+TRUCK_STATUS_API_PASSWORD = '123'
 PHONE_NUMBER_PATTERN = r'^\+7\(\d{3}\)\d{3}-\d{2}-\d{2}$' #формат ввода номера телефона
